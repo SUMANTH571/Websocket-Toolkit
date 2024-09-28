@@ -81,7 +81,7 @@ The following dependencies are used in the project:
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/YourUsername/websocket_toolkit
+   git clone https://github.com/SUMANTH571/Websocket-Toolkit.git
    cd websocket_toolkit
    ```
 
