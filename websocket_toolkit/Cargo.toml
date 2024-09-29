@@ -1,0 +1,26 @@
+[package]
+name = "websocket_toolkit"
+version = "0.1.0"
+authors = ["Sai Sumanth, Leela Venkat Sai, Kushal Kumar"]
+edition = "2021"                        
+description = "A WebSocket toolkit for Rust"    
+license = "MIT"                        
+repository = "https://github.com/SUMANTH571/Websocket-Toolkit"  
+homepage = "https://github.com/SUMANTH571/Websocket-Toolkit"    
+
+keywords = ["WebSocket", "Rust", "Real-time", "Networking", "Async"]
+
+categories = ["network-programming", "asynchronous", "web-programming"]
+
+
+readme = "README.md"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }   # Asynchronous runtime
+tokio-tungstenite = "0.15"                       # WebSocket client/server for async runtime
+serde = { version = "1", features = ["derive"] } # Serialization framework
+serde_json = "1.0"                               # JSON (de)serialization
+serde_cbor = "0.11"                              # CBOR (de)serialization
+log = "0.4"                                      # Logging library (for debugging)
+
+
