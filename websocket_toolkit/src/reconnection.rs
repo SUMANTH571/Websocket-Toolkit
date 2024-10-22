@@ -1,4 +1,6 @@
 use crate::connection::WebSocketClient;
+use tokio::time::{sleep, Duration};
+use log::warn;
 
 pub struct ReconnectStrategy {
     retries: u32,
@@ -6,15 +8,19 @@ pub struct ReconnectStrategy {
 
 impl ReconnectStrategy {
     pub fn new(retries: u32) -> Self {
-        println!("ReconnectStrategy created with {} retries.", retries);
-        Self { retries }
+        ReconnectStrategy { retries }
     }
 
     pub async fn reconnect(&self, url: &str) -> Option<WebSocketClient> {
-        for _ in 0..self.retries {
-            println!("Attempting to reconnect to {}", url);
-            
+        for attempt in 0..self.retries {
+            warn!("Attempt {}: Reconnecting to {}", attempt + 1, url);
+            self.private_retry_attempt(url).await;
+            sleep(Duration::from_secs(2)).await;
         }
         None
+    }
+
+    async fn private_retry_attempt(&self, url: &str) {
+        warn!("Trying to reconnect to {}", url);
     }
 }

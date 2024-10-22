@@ -1,6 +1,7 @@
 use websocket_toolkit::connection::WebSocketClient;
 
 fn main() {
-    let client = WebSocketClient::new("wss://example.com/socket");
+    // Create a new WebSocketClient with URL and retries
+    let client = WebSocketClient::new("wss://example.com/socket", 3);
     client.connect();
 }
