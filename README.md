@@ -5,6 +5,9 @@
 ## Release # 1
 This release serves as the initial framework for the project, setting up the core modules, dependency management, and basic features. Future versions will expand on this with more advanced functionality.
 
+## Release #2
+This release builds upon the initial framework by defining all public API functions, improving internal dependencies, and ensuring modularity. The project is now better structured to prepare for full functionality and documentation in future releases.
+
 ## Project Architecture
 
 The project follows a modular design where each core feature (connection management, reconnection logic, message handling, keep-alive mechanism) is defined in its own module. Here's a breakdown of the project’s main components:
