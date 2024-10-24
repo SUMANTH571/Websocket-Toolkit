@@ -11,6 +11,6 @@ mod tests {
     fn test_websocket_client_creation() {
         let client = WebSocketClient::new("wss://example.com/socket", 3);
         assert_eq!(client.url, "wss://example.com/socket");
-        assert_eq!(client.retries, 3);
+        assert_eq!(client.get_retries(), 3);
     }
 }
