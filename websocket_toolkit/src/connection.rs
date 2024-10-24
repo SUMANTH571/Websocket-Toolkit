@@ -21,11 +21,17 @@ impl WebSocketClient {
         self.private_disconnect();
     }
 
+    // Public getter for retries
+    pub fn get_retries(&self) -> u32 {
+        self.retries
+    }
+
     fn private_connection_setup(&self) {
-        info!("Connecting to WebSocket server at {} with {} retries allowed", self.url, self.retries);
+        println!("Connecting to WebSocket server at {} with {} retries allowed", self.url, self.retries);
     }
 
     fn private_disconnect(&self) {
-        info!("Disconnecting from WebSocket server at {}", self.url);
+        println!("Disconnecting from WebSocket server at {}", self.url);
     }
 }
+
