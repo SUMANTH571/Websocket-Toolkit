@@ -13,6 +13,9 @@ readme = "README.md"
 keywords = ["WebSocket", "Rust", "Real-time", "Networking", "Async"]
 categories = ["network-programming", "asynchronous", "web-programming"]
 
+
+
+
 [dependencies]
 tokio = { version = "1", features = ["full"], optional = true }
 tokio-tungstenite = { version = "0.15", optional = true }
@@ -21,9 +24,28 @@ serde_json = { version = "1.0", optional = true }
 serde_cbor = { version = "0.11", optional = true }
 log = "0.4"
 env_logger = "0.9"
+arbitrary = "1.0"
+libfuzzer-sys = { version = "0.4", default-features = false }
+url = "2"
+futures = "0.3"
+futures-util = "0.3"
+tungstenite = "0.15"
+async-trait = "0.1"
+
 
 [features]
 default = ["tokio", "tokio-tungstenite", "serde", "serde_json", "serde_cbor"]
 
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }  
+tokio-tungstenite = "0.15"                      
+env_logger = "0.9"                              
+
 [badges]
 travis-ci = { repository = "SUMANTH571/Websocket-Toolkit" }
+
+[package.metadata.docs.rs]
+all-features = true
+
+[profile.release]
+opt-level = 3
