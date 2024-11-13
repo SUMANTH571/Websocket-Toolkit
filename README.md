@@ -8,6 +8,12 @@ This release serves as the initial framework for the project, setting up the cor
 ## Release #2
 This release builds upon the initial framework by defining all public API functions, improving internal dependencies, and ensuring modularity. The project is now better structured to prepare for full functionality and documentation in future releases.
 
+### Release #3
+
+This release finalizes all core functionalities:
+- **Full implementation** of connection management, message handling, reconnection strategies, and keep-alive mechanisms.
+- **Example and testing** on how to develop applications using WebSocket Toolkit, with unit and integration testing.
+
 ## Project Architecture
 
 The project follows a modular design where each core feature (connection management, reconnection logic, message handling, keep-alive mechanism) is defined in its own module. Here's a breakdown of the project’s main components:
@@ -107,9 +113,14 @@ The following dependencies are used in the project:
    The project includes a basic test suite to verify the core functionality:
 
    ```bash
-   cargo test
+   cargo test -- --nocapture
    ```
 
 
+5. **Run Example**:
 
+   The project includes an example to understand more about the toolkit:
 
+   ```bash
+   cargo run --example simple_websocket 
+   ```
