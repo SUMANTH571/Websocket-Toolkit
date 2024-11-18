@@ -1,0 +1,11 @@
+FROM node:20
+
+WORKDIR /app
+
+COPY websocket_server.js .
+
+RUN npm install ws
+
+EXPOSE 9001
+
+CMD ["node", "websocket_server.js"]

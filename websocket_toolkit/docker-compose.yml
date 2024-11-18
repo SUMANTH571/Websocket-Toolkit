@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  rust-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.rust
+    depends_on:
+      - node-server
+    command: ["cargo", "run", "--example", "simple_websocket"]
+    network_mode: "host" 
+    environment:
+      NODE_SERVER_URL: "http://localhost:9001" 
+
+  node-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    ports:
+      - "9001:9001"
+    network_mode: "host" 
+    environment:
+      NODE_SERVER_HOST: "localhost"
+      NODE_SERVER_PORT: "9001"
+
