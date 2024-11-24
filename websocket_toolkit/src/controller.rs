@@ -1,4 +1,13 @@
 #![allow(unused_imports)]
+#![allow(unused_variables)]
+#![allow(dead_code)]
+
+//! Module for WebSocket controller logic.
+//!
+//! This module provides the `WebSocketController` struct, which is responsible
+//! for managing WebSocket connections. It includes functionality for connection
+//! establishment, reconnections with exponential backoff, keep-alive mechanisms,
+//! and sending/receiving messages.
 
 use crate::connection::WebSocketClient;
 use crate::messages::{MessageHandler, MessageFormat};
@@ -14,6 +23,8 @@ use tokio::sync::Mutex;
 use std::sync::Arc;
 use std::error::Error as StdError;
 
+/// The `WebSocketController` struct is responsible for managing WebSocket connections,
+/// handling reconnections, maintaining keep-alive functionality, and sending/receiving messages.
 pub struct WebSocketController {
     client: Arc<WebSocketClient>,
     reconnect_strategy: Option<ReconnectStrategy>,
@@ -22,6 +33,25 @@ pub struct WebSocketController {
 }
 
 impl WebSocketController {
+    /// Creates a new instance of `WebSocketController`.
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - The WebSocket server URL.
+    /// * `retries` - The maximum number of reconnection attempts.
+    /// * `ping_interval` - Optional interval in seconds for sending keep-alive pings.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of `WebSocketController`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use websocket_toolkit::controller::WebSocketController;
+    ///
+    /// let controller = WebSocketController::new("ws://example.com", 3, Some(10));
+    /// ```
     pub fn new(url: &str, retries: u32, ping_interval: Option<u64>) -> Self {
         Self {
             client: Arc::new(WebSocketClient::new(url, retries)),
@@ -31,6 +61,12 @@ impl WebSocketController {
         }
     }
 
+    /// Establishes a WebSocket connection.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a `WebSocketStream` if the connection is successful,
+    /// or a boxed error if the connection fails.
     pub async fn connect(
         &self,
     ) -> Result<WebSocketStream<MaybeTlsStream<TcpStream>>, Box<dyn StdError>> {
@@ -40,6 +76,15 @@ impl WebSocketController {
             .map_err(|e| Box::new(e) as Box<dyn StdError>)
     }
 
+    /// Connects to the WebSocket server and sends a message.
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The message to send as a byte slice.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure.
     pub async fn connect_and_send_message(
         &mut self,
         message: &[u8],
@@ -49,11 +94,25 @@ impl WebSocketController {
         Ok(())
     }
 
+    /// Disconnects from the WebSocket server gracefully.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure.
     pub async fn disconnect(&self) -> Result<(), Box<dyn StdError>> {
         self.client.disconnect();
         Ok(())
     }
 
+    /// Receives a message from the WebSocket server.
+    ///
+    /// # Arguments
+    ///
+    /// * `ws_stream` - A mutable reference to the WebSocket stream.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the received message as a `Vec<u8>` or an error.
     pub async fn receive_message(
         &mut self,
         ws_stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
@@ -76,6 +135,16 @@ impl WebSocketController {
         }
     }
 
+    /// Sends a message to the WebSocket server.
+    ///
+    /// # Arguments
+    ///
+    /// * `ws_stream` - A mutable reference to the WebSocket stream.
+    /// * `message` - The message to send as a byte slice.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure.
     pub async fn send_message(
         &mut self,
         ws_stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
@@ -85,6 +154,15 @@ impl WebSocketController {
         Ok(())
     }
 
+    /// Maintains the WebSocket connection by periodically sending pings.
+    ///
+    /// # Arguments
+    ///
+    /// * `ws_stream` - An `Arc`-wrapped, thread-safe `Mutex` protecting the WebSocket stream.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure.
     pub async fn maintain_connection(
         &self,
         ws_stream: Arc<Mutex<WebSocketStream<MaybeTlsStream<TcpStream>>>>,
@@ -104,6 +182,11 @@ impl WebSocketController {
         Ok(())
     }
 
+    /// Attempts to reconnect to the WebSocket server using exponential backoff.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure.
     pub async fn reconnect_if_needed(&self) -> Result<(), Box<dyn StdError>> {
         let mut attempts = 0;
         while attempts < self.retries {
@@ -118,8 +201,16 @@ impl WebSocketController {
         }
         Err("All reconnection attempts failed.".into())
     }
-    
 
+    /// Sends a ping message to the WebSocket server.
+    ///
+    /// # Arguments
+    ///
+    /// * `ws_stream` - A mutable reference to the WebSocket stream.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure.
     pub async fn send_ping(
         &self,
         ws_stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
@@ -136,7 +227,7 @@ mod tests {
     use tokio::net::TcpListener;
     use tokio_tungstenite::accept_async;
 
-    // Start a mock WebSocket server for testing
+    /// Starts a mock WebSocket server for testing purposes.
     async fn start_mock_server() -> String {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -148,11 +239,11 @@ mod tests {
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await; // Wait for the server to be ready
         format!("ws://{}", addr)
     }
-    
 
+    /// Tests the lifecycle of a `WebSocketController`.
     #[tokio::test]
     async fn test_websocket_controller_lifecycle() -> Result<(), Box<dyn StdError>> {
-        let url = "ws://127.0.0.1:9001";
+        let url = "ws://node_server:9001";
         let mut controller = WebSocketController::new(&url, 3, Some(10));
 
         // Test connection and sending a message
@@ -188,9 +279,7 @@ mod tests {
         Ok(())
     }
 
-
-
-
+    /// Tests the connection logic of `WebSocketController`.
     #[tokio::test]
     async fn test_websocket_connection() -> Result<(), Box<dyn StdError>> {
         let url = start_mock_server().await;
@@ -206,6 +295,7 @@ mod tests {
         Ok(())
     }
 
+    /// Tests the sending and receiving of messages using `WebSocketController`.
     #[tokio::test]
     async fn test_send_and_receive_message() -> Result<(), Box<dyn StdError>> {
         let url = start_mock_server().await;
@@ -230,6 +320,7 @@ mod tests {
         Ok(())
     }
 
+    /// Tests the ping mechanism of `WebSocketController`.
     #[tokio::test]
     async fn test_send_ping() -> Result<(), Box<dyn StdError>> {
         let url = start_mock_server().await;
@@ -245,6 +336,7 @@ mod tests {
         Ok(())
     }
 
+    /// Tests the reconnection logic of `WebSocketController`.
     #[tokio::test]
     async fn test_reconnect_logic() -> Result<(), Box<dyn StdError>> {
         let url = start_mock_server().await;
@@ -259,3 +351,4 @@ mod tests {
         Ok(())
     }
 }
+
