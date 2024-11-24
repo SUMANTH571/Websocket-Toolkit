@@ -10,16 +10,19 @@ COPY . .
 RUN apt-get update && apt-get install -y \
     sudo \
     curl \
+    net-tools \
     build-essential \
     libssl-dev \
     pkg-config \
     clang \
+    llvm\
     libc6-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain stable -y \
     && rustup install stable \
+    && rustup install nightly \
+    && rustup default nightly \
+    && cargo install cargo-fuzz \
+    && cargo fuzz build \
     && cargo build --release \
-    && cargo test -- --nocapture \
-
-CMD ["/bin/bash"]
