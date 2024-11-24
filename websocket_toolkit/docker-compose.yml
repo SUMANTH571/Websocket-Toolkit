@@ -6,20 +6,25 @@ services:
       context: .
       dockerfile: Dockerfile.rust
     depends_on:
-      - node-server
-    command: ["cargo", "run", "--example", "simple_websocket"]
-    network_mode: "host" 
+      - node_server  
+    command: ["sh", "-c", "cargo test -- --nocapture && cargo run --example simple_websocket && cargo fuzz run websocket_fuzz &&  tail -f /dev/null"]
     environment:
-      NODE_SERVER_URL: "http://localhost:9001" 
+      NODE_SERVER_URL: "ws://node_server:9001"  
+    networks:
+      - app-network
 
-  node-server:
+  node_server:
     build:
       context: .
       dockerfile: Dockerfile.node
     ports:
-      - "9001:9001"
-    network_mode: "host" 
+      - "9001:9001"  # Expose port to the host
     environment:
-      NODE_SERVER_HOST: "localhost"
+      NODE_SERVER_HOST: "0.0.0.0"
       NODE_SERVER_PORT: "9001"
+    networks:
+      - app-network
 
+networks:
+  app-network:
+    driver: bridge

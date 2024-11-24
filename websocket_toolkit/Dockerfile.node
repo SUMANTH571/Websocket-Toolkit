@@ -4,7 +4,22 @@ WORKDIR /app
 
 COPY websocket_server.js .
 
-RUN npm install ws
+# Install required dependencies (ws, cbor) and wscat globally
+RUN npm install ws cbor && \
+    npm install -g wscat
+
+EXPOSE 9001
+
+CMD ["node", "websocket_server.js"]
+FROM node:20
+
+WORKDIR /app
+
+COPY websocket_server.js .
+
+# Install required dependencies (ws, cbor) and wscat globally
+RUN npm install ws cbor && \
+    npm install -g wscat
 
 EXPOSE 9001
 
