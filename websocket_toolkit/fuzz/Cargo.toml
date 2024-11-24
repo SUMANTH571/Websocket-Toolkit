@@ -1,0 +1,21 @@
+[package]
+name = "websocket_toolkit-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.websocket_toolkit]
+path = ".."
+
+[[bin]]
+name = "websocket_fuzz"
+path = "fuzz_targets/websocket_fuzz.rs"
+test = false
+doc = false
+bench = false
