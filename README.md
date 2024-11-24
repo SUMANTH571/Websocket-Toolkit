@@ -197,3 +197,5 @@ Once all verifications are complete, publish the crate:
 ```bash
 cargo publish
 ```
+
+**The websocket crate we have built is now available at : https://crates.io/crates/websocket_toolkit/**
