@@ -9,6 +9,16 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.17"
+tungstenite = "0.17"
+async-trait = "0.1.50"
+arbitrary = { version = "1.0", features = ["derive"] }
+tokio-test = "0.4.4"
+env_logger = "0.9"
+log = "0.4"
+
+
 
 [dependencies.websocket_toolkit]
 path = ".."
