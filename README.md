@@ -2,10 +2,15 @@
 
 `WebSocket Toolkit` is a Rust crate designed to simplify WebSocket communication for real-time web applications. It provides the foundational structure to manage WebSocket connections, implement flexible reconnection strategies, handle multiple message formats with configurable serialization/deserialization, and maintain robust keep-alive mechanisms.
 
-## Release # 1
+
+## Release Notes:
+
+### Release #1
+
 This release serves as the initial framework for the project, setting up the core modules, dependency management, and basic features. Future versions will expand on this with more advanced functionality.
 
-## Release #2
+### Release #2
+
 This release builds upon the initial framework by defining all public API functions, improving internal dependencies, and ensuring modularity. The project is now better structured to prepare for full functionality and documentation in future releases.
 
 ### Release #3
@@ -13,6 +18,16 @@ This release builds upon the initial framework by defining all public API functi
 This release finalizes all core functionalities:
 - **Full implementation** of connection management, message handling, reconnection strategies, and keep-alive mechanisms.
 - **Example and testing** on how to develop applications using WebSocket Toolkit, with unit and integration testing.
+
+### Final Release
+
+The final release includes all features from previous releases and adds:
+- **Comprehensive examples**: Includes detailed usage examples for connection setup, message handling, reconnection, and keep-alive.
+- **Full documentation**: Using `cargo doc --open`, all modules, functions, and structs are thoroughly documented.
+- **Unit and integration tests**: To ensure robustness and correctness.
+- **Fuzz testing**: Validates deserialization against random data to prevent panics or crashes.
+- **Docker Support**: Provides Docker and Docker Compose setup for seamless builds, testing, and example execution.
+- **Crate Published on crate.io:** The crate has been published on the crates.io page by linking github repository.
 
 ## Project Architecture
 
@@ -25,102 +40,160 @@ The project follows a modular design where each core feature (connection managem
    - Implements the `WebSocketClient` struct, which provides basic connection setup and connection management.
 
 2. **`reconnection.rs`**:
-   - Provides a placeholder for reconnection logic with retries.
-   - The `ReconnectStrategy` struct handles the number of retry attempts and will later implement reconnection behavior based on exponential backoff.
+   - Implements reconnection logic with retries and exponential backoff.
+   - The `ReconnectStrategy` struct handles the number of retry attempts and delay configurations.
 
 3. **`messages.rs`**:
    - Handles message serialization and deserialization.
-   - Supports multiple formats including JSON and CBOR, using the `serde` library.
+   - Supports multiple formats, including JSON and CBOR, using the `serde` library.
 
 4. **`keep_alive.rs`**:
    - Implements the keep-alive mechanism to maintain WebSocket connections.
    - Uses `tokio::time` for periodic ping/pong frames, keeping the connection active.
 
-5. **`lib.rs`**:
-   - Acts as the central hub of the crate, re-exporting the modules and providing unit tests to ensure core functionality works correctly.
+5. **`controller.rs`**:
+   - Provides a high-level interface to manage WebSocket connections, integrating all other modules.
 
-6. **`main.rs`**:
-   - Provides an example executable that demonstrates how the library can be used in a real-world application.
-   - It creates a `WebSocketClient` and connects to the provided WebSocket URL.
+6. **`lib.rs`**:
+   - Acts as the central hub of the crate, re-exporting the modules for user accessibility.
+   - Contains unit tests for individual components.
 
-### Features:
+7. **`main.rs`**:
+   - Provides an example executable demonstrating how to use the library.
+   - Creates a `WebSocketClient`, connects to a WebSocket server, and performs messaging tasks.
+
+
+## Features
 
 - **Asynchronous, Non-Blocking Connection Management**:
   - The project uses the `tokio-tungstenite` crate along with Rust's async/await syntax to create efficient, non-blocking WebSocket connections.
   
-- **Reconnection Logic (Placeholder)**:
-  - The `ReconnectStrategy` provides the framework for retrying connections, allowing for future implementation of customizable reconnection strategies, such as exponential backoff.
+- **Reconnection Logic**:
+  - The `ReconnectStrategy` provides customizable reconnection behavior with retries and exponential backoff.
   
 - **Message Handling**:
-  - Supports JSON and CBOR message formats using `serde`. The message handling module (`messages.rs`) allows for serialization and deserialization of messages, with flexibility for future formats.
+  - Supports JSON and CBOR message formats using `serde`. The `messages` module handles serialization and deserialization, with flexibility for future formats.
   
 - **Keep-Alive Mechanism**:
   - Periodically sends ping/pong frames to ensure that WebSocket connections remain active. The interval for pings is configurable.
 
+
 ## Crates Dependencies
 
-The following dependencies are used in the project:
+### Core Dependencies
 
-- **`tokio`**: Provides asynchronous runtime, enabling non-blocking operations.
-  - Version: `1.0` (with `full` features).
-  - Used for managing asynchronous tasks, such as maintaining WebSocket connections and sending/receiving messages.
+- **`tokio`**: Asynchronous runtime for non-blocking operations.
+- **`tokio-tungstenite`**: WebSocket client/server library.
+- **`serde`**: Serialization/deserialization framework.
+- **`serde_json`**: JSON support.
+- **`serde_cbor`**: CBOR support.
+- **`log`**: Logging framework.
 
-- **`tokio-tungstenite`**: A WebSocket client/server library built on top of `tokio`.
-  - Version: `0.15`.
-  - Used to handle WebSocket connections asynchronously, enabling real-time communication.
+### Fuzzing
 
-- **`serde`**: A framework for serializing and deserializing data.
-  - Version: `1.0` (with `derive` feature).
-  - Used for flexible message serialization and deserialization in different formats (JSON, CBOR).
+- **`cargo-fuzz`**: Fuzz testing framework for Rust.
 
-- **`serde_json`**: Provides JSON serialization/deserialization support.
-  - Version: `1.0`.
-  - Handles text-based WebSocket message formats.
-
-- **`serde_cbor`**: Provides CBOR serialization/deserialization support.
-  - Version: `0.11`.
-  - Handles binary WebSocket message formats, useful for compact data exchanges.
-
-- **`log`**: A logging library for Rust.
-  - Version: `0.4`.
-  - Provides logging functionality that will be used for debugging and tracking WebSocket events.
 
 ## Installation and Usage
 
-1. **Clone the repository**:
+### Prerequisites
 
+**1.  Install Rust (Stable and Nightly Toolchains)**:
    ```bash
-   git clone https://github.com/SUMANTH571/Websocket-Toolkit.git
-   cd websocket_toolkit
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   rustup install stable
+   rustup install nightly
+   rustup default stable
    ```
+**2.  Install LLVM and Clang:**
 
-2. **Build the project**:
-
+- On Ubuntu:
    ```bash
-   cargo build
+   sudo apt-get update
+   sudo apt-get install -y clang llvm libclang-dev
    ```
-
-3. **Run the binary executable** (defined in `main.rs`):
-
+- On macOS:
    ```bash
-   cargo run
+   brew install llvm
    ```
+**3. Install Cargo-Fuzz:**
 
-   This will create a `WebSocketClient` and attempt to connect to the WebSocket server defined in the code.
+```bash
+cargo install cargo-fuzz
+```
 
-4. **Run tests**:
+**Steps to use the crate:**
+**1. Clone the repository:**
 
-   The project includes a basic test suite to verify the core functionality:
+```bash
+git clone https://github.com/SUMANTH571/Websocket-Toolkit.git
+cd websocket_toolkit
+```
 
-   ```bash
-   cargo test -- --nocapture
-   ```
+**2. Build the project:**
+
+```bash
+cargo build
+```
+
+**3. Run tests:**
+
+```bash
+cargo test -- --nocapture
+```
+**Note:** If running locally, replace ws://node_server:9001 with ws://127.0.0.1:9001 in the tests.
 
 
-5. **Run Example**:
+**4. Run the example:**
 
-   The project includes an example to understand more about the toolkit:
+```bash
+cargo run --example simple_websocket
+```
 
-   ```bash
-   cargo run --example simple_websocket 
-   ```
+## Fuzz Testing:
+
+**1.  Install cargo-fuzz:**
+```bash
+cargo install cargo-fuzz
+```
+**2.  Run fuzz testing:**
+```bash
+cargo fuzz run websocket_fuzz
+```
+**Note for Windows Users:** Fuzzing with cargo-fuzz may not work due to LLVM dependencies. Use a Linux VM, WSL, or the provided Docker environment for fuzzing.
+
+## Docker Support & Setup
+**1. Docker Compose File (docker-compose.yml):** Includes services for both the Rust application and a Node.js WebSocket server.
+
+**2. Rust Dockerfile (Dockerfile.rust):** Installs Rust, cargo-fuzz, LLVM, and other dependencies.
+
+**3. Node.js Dockerfile (Dockerfile.node):** Sets up a Node.js WebSocket server with required dependencies (ws and cbor).
+
+
+## Build Documentation: 
+Verify the crate’s documentation builds correctly.
+
+```bash
+cargo doc --open
+```
+
+## Publishing code to Crates.io:
+This step requires API Token generated on crate.io accounts page to authenticate.
+
+```bash
+cargo login
+```
+
+Verify if the crate is ready to be published by running the following commands:
+
+```bash
+cargo check
+cargo build
+cargo test -- --nocapture 
+```
+
+Once all verifications are complete, publish the crate:
+
+```bash
+cargo publish
+```
