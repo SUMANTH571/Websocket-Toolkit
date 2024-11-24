@@ -1,4 +1,5 @@
 #![allow(unused_imports)]
+
 use crate::connection::WebSocketClient;
 use crate::messages::{MessageHandler, MessageFormat};
 use crate::reconnection::ReconnectStrategy;
@@ -7,145 +8,124 @@ use log::{info, error, debug, warn};
 use tokio_tungstenite::{WebSocketStream, MaybeTlsStream};
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::Message;
-use futures_util::{sink::SinkExt, StreamExt};  // Import StreamExt here
-use tokio::time::{interval, sleep, Duration};
+use futures_util::{sink::SinkExt, StreamExt};
+use tokio::time::{sleep, Duration};
+use tokio::sync::Mutex;
 use std::sync::Arc;
-use std::net::SocketAddr;
-use tokio::net::TcpListener;
-use tokio_tungstenite::accept_async;
-
+use std::error::Error as StdError;
 
 pub struct WebSocketController {
     client: Arc<WebSocketClient>,
-    reconnect_strategy: ReconnectStrategy,
-    keep_alive: Option<KeepAlive>,  // keep_alive field used for keep-alive functionality
-    ping_interval: u64,     // Add ping_interval field (in seconds)
-    retries: u32,   
+    reconnect_strategy: Option<ReconnectStrategy>,
+    ping_interval: Duration,
+    retries: u32,
 }
 
 impl WebSocketController {
     pub fn new(url: &str, retries: u32, ping_interval: Option<u64>) -> Self {
-        let client = Arc::new(WebSocketClient::new(url, retries));
-        let reconnect_strategy = ReconnectStrategy::new(retries, 2);  // 2 seconds base delay
-        let keep_alive = ping_interval.map(|interval| KeepAlive::new(Duration::from_secs(interval)));
-
-        WebSocketController {
-            client,
-            reconnect_strategy,
-            keep_alive,
-            ping_interval: ping_interval.unwrap_or(10), // Default to 10 seconds if None
+        Self {
+            client: Arc::new(WebSocketClient::new(url, retries)),
+            reconnect_strategy: Some(ReconnectStrategy::new(retries, 2)),
+            ping_interval: Duration::from_secs(ping_interval.unwrap_or(5)),
             retries,
         }
     }
 
-    pub async fn connect_and_send_message(&self, message: &[u8]) -> Result<(), tokio_tungstenite::tungstenite::Error> {
-        let mut ws_stream = self.client.connect().await?;
-        self.send_message(&mut ws_stream, message).await;
+    pub async fn connect(
+        &self,
+    ) -> Result<WebSocketStream<MaybeTlsStream<TcpStream>>, Box<dyn StdError>> {
+        self.client
+            .connect()
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn StdError>)
+    }
+
+    pub async fn connect_and_send_message(
+        &mut self,
+        message: &[u8],
+    ) -> Result<(), Box<dyn StdError>> {
+        let mut ws_stream = self.connect().await?;
+        self.send_message(&mut ws_stream, message).await?;
         Ok(())
     }
-  
-    async fn send_message(
-        &self,
+
+    pub async fn disconnect(&self) -> Result<(), Box<dyn StdError>> {
+        self.client.disconnect();
+        Ok(())
+    }
+
+    pub async fn receive_message(
+        &mut self,
         ws_stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
-        message: &[u8]
-    ) {
-        let msg = if let Ok(text) = std::str::from_utf8(message) {
-            Message::Text(text.to_string())
-        } else {
-            Message::Binary(message.to_vec())
-        };
-    
-        if let Err(e) = ws_stream.send(msg).await {
-            error!("Failed to send message: {}", e);
-        }
-    }
-
-    pub async fn reconnect_if_needed(&self) -> Result<(), String> {
-        // Handle the Result properly
-        match self.reconnect_strategy.reconnect(self.client.clone()).await {
-            Some(()) => Ok(()),
-            None => Err("Failed to reconnect after maximum retries".to_string()),
-        }
-    }
-
-    pub async fn maintain_connection(&mut self) {
-        let mut ws_stream = match self.client.connect().await {
-            Ok(stream) => stream,
-            Err(e) => {
-                error!("Initial connection failed: {}", e);
-                return;
-            }
-        };
-
-        let mut ping_interval = interval(Duration::from_secs(self.ping_interval));
-        let mut retry_count = 0;
-
-        loop {
-            tokio::select! {
-                _ = ping_interval.tick() => {
-                    match ws_stream.send(Message::Ping(vec![])).await {
-                        Ok(_) => info!("Ping sent to keep connection alive"),
-                        Err(e) => {
-                            error!("Failed to send ping: {}", e);
-                            retry_count += 1;
-
-                            // Backoff strategy with maximum retries
-                            if retry_count > self.retries {
-                                error!("Maximum reconnection attempts reached. Exiting keep-alive.");
-                                break;
-                            }
-
-                            // Attempt to reconnect after a delay
-                            error!("Attempting reconnection in 5 seconds...");
-                            sleep(Duration::from_secs(5)).await;
-                            ws_stream = match self.client.connect().await {
-                                Ok(new_stream) => {
-                                    retry_count = 0; // Reset retries on successful reconnect
-                                    new_stream
-                                },
-                                Err(reconnect_error) => {
-                                    error!("Reconnection attempt failed: {}", reconnect_error);
-                                    continue;
-                                }
-                            };
-                        }
-                    }
+    ) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
+        if let Some(msg) = ws_stream.next().await {
+            match msg? {
+                Message::Binary(data) => Ok(Some(data)),
+                Message::Text(text) => Ok(Some(text.into_bytes())),
+                Message::Ping(_) | Message::Pong(_) => {
+                    info!("Received control message: Ping/Pong");
+                    Ok(None)
+                }
+                Message::Close(_) => {
+                    info!("Received Close message");
+                    Err("Connection closed by server".into())
                 }
             }
+        } else {
+            Err("No message received".into())
         }
     }
 
-    pub async fn setup_mock_server() -> SocketAddr {
-        let addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
-        let listener = TcpListener::bind(&addr).await.expect("Failed to bind server");
-        let addr = listener.local_addr().unwrap();
+    pub async fn send_message(
+        &mut self,
+        ws_stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+        message: &[u8],
+    ) -> Result<(), Box<dyn StdError>> {
+        ws_stream.send(Message::Binary(message.to_vec())).await?;
+        Ok(())
+    }
 
-        debug!("Mock WebSocket server is listening at: {}", addr);
-
+    pub async fn maintain_connection(
+        &self,
+        ws_stream: Arc<Mutex<WebSocketStream<MaybeTlsStream<TcpStream>>>>,
+    ) -> Result<(), Box<dyn StdError>> {
+        let interval = self.ping_interval;
         tokio::spawn(async move {
-            while let Ok((stream, _)) = listener.accept().await 
-            {
-                debug!("Received connection from client...");
-                let mut ws_stream = accept_async(stream)
-                    .await
-                    .expect("Failed to accept WebSocket connection");
-
-                while let Some(msg) = ws_stream.next().await {
-                    match msg {
-                        Ok(Message::Text(text)) => {
-                            debug!("Server received message: {}", text);
-                            ws_stream.send(Message::Text("Echo".to_string())).await.unwrap();
-                        }
-                        Ok(Message::Ping(ping)) => {
-                            ws_stream.send(Message::Pong(ping)).await.unwrap();
-                        }
-                        _ => (),
-                    }
+            let mut ticker = tokio::time::interval(interval);
+            loop {
+                ticker.tick().await;
+                let mut stream = ws_stream.lock().await;
+                if let Err(e) = stream.send(Message::Ping(vec![])).await {
+                    error!("Ping failed: {}", e);
+                    break;
                 }
             }
         });
+        Ok(())
+    }
 
-        addr
+    pub async fn reconnect_if_needed(&self) -> Result<(), Box<dyn StdError>> {
+        let mut attempts = 0;
+        while attempts < self.retries {
+            match self.connect().await {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    error!("Reconnection attempt {} failed: {}", attempts + 1, e);
+                    tokio::time::sleep(Duration::from_secs(2_u64.pow(attempts))).await; // Exponential backoff
+                    attempts += 1;
+                }
+            }
+        }
+        Err("All reconnection attempts failed.".into())
+    }
+    
+
+    pub async fn send_ping(
+        &self,
+        ws_stream: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+    ) -> Result<(), Box<dyn StdError>> {
+        ws_stream.send(Message::Ping(Vec::new())).await?;
+        Ok(())
     }
 }
 
@@ -153,17 +133,129 @@ impl WebSocketController {
 mod tests {
     use super::*;
     use tokio::time::{timeout, Duration};
+    use tokio::net::TcpListener;
+    use tokio_tungstenite::accept_async;
 
-    // Example test using reconnect and handling the result
+    // Start a mock WebSocket server for testing
+    async fn start_mock_server() -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            if let Ok((stream, _)) = listener.accept().await {
+                let _ = accept_async(stream).await.unwrap();
+            }
+        });
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await; // Wait for the server to be ready
+        format!("ws://{}", addr)
+    }
+    
+
     #[tokio::test]
-    async fn test_websocket_controller_lifecycle() {
-        let mut controller = WebSocketController::new("ws://127.0.0.1:9001", 3, Some(10));
-        
-        // Make sure to handle the result properly in the main code
-        if let Err(e) = controller.connect_and_send_message(b"Hello, WebSocket!").await {
-            error!("Failed to connect and send message: {}", e);
-        }
-        controller.reconnect_if_needed().await.unwrap_or_else(|e| error!("{}", e));
-        controller.maintain_connection().await;
+    async fn test_websocket_controller_lifecycle() -> Result<(), Box<dyn StdError>> {
+        let url = "ws://127.0.0.1:9001";
+        let mut controller = WebSocketController::new(&url, 3, Some(10));
+
+        // Test connection and sending a message
+        let connect_result = controller.connect_and_send_message(b"Hello, WebSocket!").await;
+        assert!(
+            connect_result.is_ok(),
+            "Failed to connect and send message: {:?}",
+            connect_result.err()
+        );
+
+        // Test reconnection logic
+        let reconnect_result = controller.reconnect_if_needed().await;
+        assert!(
+            reconnect_result.is_ok(),
+            "Reconnection failed: {:?}",
+            reconnect_result.err()
+        );
+
+        // Test maintain connection (keep-alive)
+        let ws_stream = Arc::new(Mutex::new(controller.connect().await?));
+        controller.maintain_connection(ws_stream.clone()).await?;
+
+        // Simulate activity
+        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+        // Validate that the connection remains active
+        let mut lock = ws_stream.lock().await;
+        assert!(
+            lock.close(None).await.is_ok(),
+            "WebSocket stream failed to close gracefully."
+        );
+
+        Ok(())
+    }
+
+
+
+
+    #[tokio::test]
+    async fn test_websocket_connection() -> Result<(), Box<dyn StdError>> {
+        let url = start_mock_server().await;
+        let mut controller = WebSocketController::new(&url, 3, Some(5));
+
+        // Test connect method
+        let ws_stream = controller.connect().await;
+        assert!(
+            ws_stream.is_ok(),
+            "Connection failed: {:?}",
+            ws_stream.err()
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_send_and_receive_message() -> Result<(), Box<dyn StdError>> {
+        let url = start_mock_server().await;
+        let mut controller = WebSocketController::new(&url, 3, Some(5));
+        let mut ws_stream = controller.connect().await.unwrap();
+
+        // Test sending a message
+        let message = b"Test Message";
+        let send_result = controller.send_message(&mut ws_stream, message).await;
+        assert!(
+            send_result.is_ok(),
+            "Failed to send message: {:?}",
+            send_result.err()
+        );
+
+        // Mock receiving a message
+        let receive_result = controller.receive_message(&mut ws_stream).await;
+        assert!(
+            receive_result.is_err(),
+            "Expected no message, but received one."
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_send_ping() -> Result<(), Box<dyn StdError>> {
+        let url = start_mock_server().await;
+        let mut controller = WebSocketController::new(&url, 3, Some(5));
+        let mut ws_stream = controller.connect().await.unwrap();
+
+        let ping_result = controller.send_ping(&mut ws_stream).await;
+        assert!(
+            ping_result.is_ok(),
+            "Ping failed: {:?}",
+            ping_result.err()
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_reconnect_logic() -> Result<(), Box<dyn StdError>> {
+        let url = start_mock_server().await;
+        let controller = WebSocketController::new(&url, 3, Some(5));
+
+        let reconnect_result = controller.reconnect_if_needed().await;
+        assert!(
+            reconnect_result.is_ok(),
+            "Reconnection failed: {:?}",
+            reconnect_result.err()
+        );
+        Ok(())
     }
 }
