@@ -169,6 +169,13 @@ cargo fuzz run websocket_fuzz
 
 **3. Node.js Dockerfile (Dockerfile.node):** Sets up a Node.js WebSocket server with required dependencies (ws and cbor).
 
+## Crate Execution with Docker:
+
+To execute the code inside the Docker, run the following command, which will build the crate, test it, run and example and starting fuzz which will run indefinetly until the execution is stopped.
+
+```bash
+docker compose up --build
+```
 
 ## Build Documentation: 
 Verify the crate’s documentation builds correctly.
